@@ -17,7 +17,8 @@
       size: 'サイズ区分',   // 価格付きプルダウン（非表示にする）
       width: '仕上がり幅',  // テキスト入力
       height: '仕上がり丈', // テキスト入力
-      open: '開き方'        // ラジオ（片開き / 両開き）
+      open: '開き方',       // ラジオ（片開き / 両開き）
+      hook: 'フック'        // ラジオ（Aフック / Bフック）
     },
     openBoth: '両開き',      // 「両開き」の選択肢名に含まれる文字
     openSingle: '片開き',
@@ -158,6 +159,100 @@
     labelEl.appendChild(span);
   }
 
+  // ===== 図で選ぶカード（開き方・フック） =====
+  // 図はファイルを使わずSVGで描く（窓＝点線、レール＝濃いグレー、カーテン＝ベージュ）
+  var WIN = '<rect x="6" y="9" width="44" height="40" fill="#f4f8fb" stroke="#b9c3cc" stroke-dasharray="2 2"/>';
+  var PLEATS = function (x, w) {
+    var s = '';
+    for (var p = x + 4; p < x + w - 1; p += 5) s += '<path d="M' + p + ' 11v38" stroke="#cbbfae"/>';
+    return s;
+  };
+  var ICONS = {
+    single: '<svg viewBox="0 0 56 56">' + WIN +
+      '<rect x="4" y="6" width="48" height="3" rx="1" fill="#777"/>' +
+      '<rect x="7" y="9" width="24" height="41" fill="#e9e1d5" stroke="#b8a993"/>' + PLEATS(7, 24) +
+      '<path d="M36 30h11m-3-3 3 3-3 3" stroke="#999" fill="none" stroke-width="1.5"/></svg>',
+    double: '<svg viewBox="0 0 56 56">' + WIN +
+      '<rect x="4" y="6" width="48" height="3" rx="1" fill="#777"/>' +
+      '<rect x="7" y="9" width="15" height="41" fill="#e9e1d5" stroke="#b8a993"/>' + PLEATS(7, 15) +
+      '<rect x="34" y="9" width="15" height="41" fill="#e9e1d5" stroke="#b8a993"/>' + PLEATS(34, 15) + '</svg>',
+    hookA: '<svg viewBox="0 0 56 56">' + WIN +
+      '<rect x="4" y="6" width="48" height="5" rx="1" fill="#777"/>' +
+      '<path d="M12 11v4M20 11v4M28 11v4M36 11v4M44 11v4" stroke="#777"/>' +
+      '<rect x="7" y="15" width="42" height="35" fill="#e9e1d5" stroke="#b8a993"/>' +
+      '<path d="M14 17v32M21 17v32M28 17v32M35 17v32M42 17v32" stroke="#cbbfae"/></svg>',
+    hookB: '<svg viewBox="0 0 56 56">' + WIN +
+      '<rect x="7" y="3" width="42" height="47" fill="#e9e1d5" stroke="#b8a993"/>' +
+      '<path d="M14 5v44M21 5v44M28 5v44M35 5v44M42 5v44" stroke="#cbbfae"/>' +
+      '<rect x="4" y="8" width="48" height="5" rx="1" fill="none" stroke="#777" stroke-dasharray="2 2"/></svg>'
+  };
+  var cardRefreshers = [];
+
+  // label: 項目名 / iconFor: 選択肢の文字から図の種類を返す関数
+  function setupCards(label, iconFor) {
+    var opt = findOption(label);
+    if (!opt) return;
+    var radios = opt.dd.querySelectorAll('input[type="radio"]');
+    if (!radios.length) return;
+    opt.dd.classList.add('so-cards');
+
+    for (var i = 0; i < radios.length; i++) {
+      var lb = radios[i].id && document.querySelector('label[for="' + radios[i].id + '"]');
+      if (!lb) continue;
+      var item = radios[i].closest('.fs-c-radio') || radios[i].parentNode;
+      item.classList.add('so-card-item');
+      if (item.parentNode) item.parentNode.classList.add('so-cards-wrap');
+
+      // 「Aフック（カーテンレールが見える）」→ 名前「Aフック」＋補足「カーテンレールが見える」
+      var name = visibleText(lb);
+      // 有料オプションの「+¥1,100(税込)」は分けて最後に出す
+      var priceM = name.match(/\s*[(（]?[+＋]\s*[¥￥][\d,]+\s*(?:[(（]?税込[)）]?)?[)）]?\s*$/);
+      var price = priceM ? priceM[0].trim() : '';
+      if (priceM) name = name.slice(0, priceM.index);
+      var m = name.match(/^(.*?)[（(](.*)[）)]$/);
+      var main = m ? m[1] : name;
+      var sub = m ? m[2] : '';
+      if (price) sub = sub ? sub + ' ' + price : price;
+      var key = iconFor(name);
+
+      while (lb.firstChild) lb.removeChild(lb.firstChild);
+      if (key && ICONS[key]) {
+        var ic = document.createElement('span');
+        ic.className = 'so-card-icon';
+        ic.innerHTML = ICONS[key];
+        lb.appendChild(ic);
+      }
+      var tx = document.createElement('span');
+      tx.className = 'so-card-text';
+      var mainEl = document.createElement('span');
+      mainEl.className = 'so-card-main';
+      mainEl.textContent = main;
+      tx.appendChild(mainEl);
+      if (sub) {
+        var subEl = document.createElement('span');
+        subEl.className = 'so-card-sub';
+        subEl.textContent = sub;
+        tx.appendChild(subEl);
+      }
+      lb.appendChild(tx);
+    }
+
+    function refresh() {
+      for (var j = 0; j < radios.length; j++) {
+        var it = radios[j].closest('.fs-c-radio') || radios[j].parentNode;
+        it.classList.toggle('is-selected', radios[j].checked);
+        it.classList.toggle('is-disabled', radios[j].disabled);
+      }
+    }
+    for (var k = 0; k < radios.length; k++) radios[k].addEventListener('change', refresh);
+    cardRefreshers.push(refresh);
+    refresh();
+  }
+
+  function refreshCards() {
+    for (var i = 0; i < cardRefreshers.length; i++) cardRefreshers[i]();
+  }
+
   // ===== カラー画像 =====
   // 画面に見えている文字だけ（非表示にした「+¥0(税込)」を含めない）
   function visibleText(el) {
@@ -262,6 +357,12 @@
     hideZeroPrices();
     window.addEventListener('load', hideZeroPrices);
     setupColorSwatches();
+    setupCards(CONFIG.label.open, function (t) {
+      return t.indexOf(CONFIG.openBoth) !== -1 ? 'double' : (t.indexOf(CONFIG.openSingle) !== -1 ? 'single' : null);
+    });
+    setupCards(CONFIG.label.hook, function (t) {
+      return /^[AＡ]/.test(t) ? 'hookA' : (/^[BＢ]/.test(t) ? 'hookB' : null);
+    });
 
     // サイズ区分の行は非表示（値は送信される）
     size.dt.style.display = 'none';
@@ -385,6 +486,7 @@
       if (band && !allowBoth) msgEl.textContent = '※巾100cm以下は片開きのみです。';
       box.classList.toggle('is-error', !band && (wInput.value !== '' || hInput.value !== ''));
       setCartEnabled(state.ok, msgs[0]);
+      refreshCards(); // 巾100cm以下で「両開き」が選べなくなった状態をカードにも反映
     }
 
     // カートボタン（futureshopのクラス名、なければ「カートに入れる」の文言で探す）
@@ -491,7 +593,23 @@
       '.so-swatch-item.is-selected .so-swatch{border-color:#333}' +
       '.so-swatch-item.is-selected label{font-weight:bold}' +
       '.so-swatch-item input:focus-visible+label .so-swatch{outline:2px solid #4a90e2;outline-offset:2px}' +
-      '.so-swatch-current{font-weight:normal;margin-left:4px}';
+      '.so-swatch-current{font-weight:normal;margin-left:4px}' +
+      // 図で選ぶカード（2列。左に図、右に名前と補足）
+      '.so-cards-wrap{display:grid!important;grid-template-columns:1fr 1fr;gap:10px}' +
+      '.so-cards .so-card-item{position:relative;display:block!important;float:none!important;width:auto!important;max-width:none!important;margin:0!important}' +
+      '.so-cards .so-card-item input[type="radio"]{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}' +
+      '.so-cards .so-card-item label{display:flex!important;align-items:center;gap:10px;box-sizing:border-box;height:100%;min-height:76px;margin:0!important;padding:10px!important;border:1px solid #ccc;border-radius:5px;background:#fff;cursor:pointer;transition:border-color .15s,background .15s}' +
+      '.so-cards .so-card-item label::before,.so-cards .so-card-item label::after{display:none!important}' +
+      '.so-cards .so-card-item:hover label{border-color:#999}' +
+      '.so-card-icon{flex:0 0 auto;width:56px;height:56px}' +
+      '.so-card-icon svg{display:block;width:56px;height:56px}' +
+      '.so-card-text{display:flex;flex-direction:column;gap:2px;line-height:1.35;text-align:left}' +
+      '.so-card-main{font-size:14px;font-weight:bold;color:#333}' +
+      '.so-card-sub{font-size:11px;color:#888}' +
+      '.so-cards .so-card-item.is-selected label{border:2px solid #333;padding:9px!important;background:#faf8f5}' +
+      '.so-cards .so-card-item.is-disabled label{opacity:.35;cursor:not-allowed;background:#f3f3f3}' +
+      '.so-cards .so-card-item input:focus-visible+label{outline:2px solid #4a90e2;outline-offset:2px}' +
+      '@media (max-width:360px){.so-card-icon,.so-card-icon svg{width:44px;height:44px}.so-cards .so-card-item label{gap:6px;padding:8px!important}}';
     document.head.appendChild(style);
   }
 
