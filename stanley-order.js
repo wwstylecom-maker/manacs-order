@@ -246,6 +246,13 @@
 
     wInput.setAttribute('inputmode', 'decimal');
     hInput.setAttribute('inputmode', 'decimal');
+    // 数字入力欄の高さを今の1.5倍に
+    [wInput, hInput].forEach(function (inp) {
+      var hgt = inp.offsetHeight || 36;
+      inp.style.boxSizing = 'border-box';
+      inp.style.height = Math.round(hgt * 1.5) + 'px';
+      inp.style.fontSize = '18px';
+    });
     wInput.setAttribute('placeholder', CONFIG.width.min + '〜' + CONFIG.width.max);
     hInput.setAttribute('placeholder', CONFIG.height.min + '〜' + CONFIG.height.max);
 
@@ -255,7 +262,13 @@
     box.innerHTML =
       '<div class="so-result__price"></div>' +
       '<div class="so-result__msg" role="alert"></div>';
-    height.dd.appendChild(box);
+    // 価格表示は、すべての入力項目の最後（表示されている最後のオプション欄の末尾）に置く
+    var dds = document.querySelectorAll('.fs-c-productOption__option');
+    var lastDd = height.dd;
+    for (var k = dds.length - 1; k >= 0; k--) {
+      if (dds[k] !== size.dd && dds[k].offsetParent !== null) { lastDd = dds[k]; break; }
+    }
+    lastDd.appendChild(box);
     var priceEl = box.querySelector('.so-result__price');
     var msgEl = box.querySelector('.so-result__msg');
 
