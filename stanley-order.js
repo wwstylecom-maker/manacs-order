@@ -137,6 +137,27 @@
     }
   }
 
+  // 項目名の後ろ（必須マーク「*」の前）に単位を付ける：仕上がり幅* → 仕上がり幅（cm）*
+  function addUnit(opt, unit) {
+    var labelEl = opt.dt.querySelector('.fs-c-productOption__label') || opt.dt;
+    var span = document.createElement('span');
+    span.className = 'so-unit';
+    span.textContent = unit;
+    var mark = labelEl.querySelector('.fs-c-requiredMark');
+    if (mark) { mark.parentNode.insertBefore(span, mark); return; }
+    var walker = document.createTreeWalker(labelEl, NodeFilter.SHOW_TEXT, null, false);
+    while (walker.nextNode()) {
+      var node = walker.currentNode;
+      var idx = node.nodeValue.search(/[*＊]|\(必須\)|（必須）/);
+      if (idx !== -1) {
+        var rest = node.splitText(idx);
+        rest.parentNode.insertBefore(span, rest);
+        return;
+      }
+    }
+    labelEl.appendChild(span);
+  }
+
   // ===== カラー画像 =====
   // 画面に見えている文字だけ（非表示にした「+¥0(税込)」を含めない）
   function visibleText(el) {
@@ -193,6 +214,8 @@
       var target = lb || radios[i].parentNode;
       var item = radios[i].closest('.fs-c-radio') || radios[i].parentNode;
       item.classList.add('so-swatch-item');
+      // 並べる枠はテーマによって違うので、色の部品の親に直接クラスを付ける
+      if (item.parentNode) item.parentNode.classList.add('so-swatch-wrap');
       var no = ('0' + (CONFIG.color.start + i)).slice(-2);
       var tip = document.createElement('span');
       tip.className = 'so-swatch';
@@ -243,6 +266,9 @@
     // サイズ区分の行は非表示（値は送信される）
     size.dt.style.display = 'none';
     size.dd.style.display = 'none';
+
+    addUnit(width, '（cm）');
+    addUnit(height, '（cm）');
 
     wInput.setAttribute('inputmode', 'decimal');
     hInput.setAttribute('inputmode', 'decimal');
@@ -452,8 +478,10 @@
       '.so-cart-hint{color:#c00;font-size:13px;margin-top:6px;text-align:center}' +
       '.so-cart-hint:empty{display:none}' +
       // カラー画像（丸い画像＋下に色名。選択中は枠）
-      '.so-swatches .fs-c-productOption__field{display:flex;flex-wrap:wrap;gap:14px 8px}' +
-      '.so-swatches .so-swatch-item{position:relative;display:block;min-width:58px;margin:0!important;text-align:center;white-space:nowrap}' +
+      // テーマのスマホ用CSS（1色ずつ縦に並べる指定）に負けないよう !important を付ける
+      '.so-swatch-wrap{display:flex!important;flex-direction:row!important;flex-wrap:wrap!important;gap:14px 8px}' +
+      '.so-swatches .so-swatch-item{position:relative;display:block!important;float:none!important;width:auto!important;max-width:none!important;flex:0 0 auto!important;min-width:58px;margin:0!important;text-align:center;white-space:nowrap}' +
+      '@media (max-width:600px){.so-swatch-wrap{display:grid!important;grid-template-columns:repeat(3,1fr);gap:14px 4px}.so-swatches .so-swatch-item{min-width:0}}' +
       '.so-swatches .so-swatch-item input[type="radio"]{position:absolute;opacity:0;width:1px;height:1px;pointer-events:none}' +
       '.so-swatches .so-swatch-item label{display:flex!important;flex-direction:column;align-items:center;gap:6px;cursor:pointer;font-size:11px;line-height:1.3;letter-spacing:0;padding:0!important}' +
       '.so-swatches .so-swatch-item label::before,.so-swatches .so-swatch-item label::after,.so-swatches .fs-c-radio__radioMark{display:none!important}' +
